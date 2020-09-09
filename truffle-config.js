@@ -1,3 +1,29 @@
+const { NearProvider, nearlib, utils } = require('near-web3-provider');
+
+function NearLocalProvider() {
+  return new NearProvider({
+    nodeUrl: 'http://127.0.0.1:3030',
+    networkId: 'local',
+    masterAccountId: 'test.near',
+    evmAccountId: 'evm',
+  });
+}
+
+function NearTestNetProvider() {
+  return new NearProvider({
+    nodeUrl: 'https://rpc.testnet.near.org',
+    networkId: 'default',
+    masterAccountId: 'illia',
+    evmAccountId: 'evm.illia',
+  });
+}
+
+// TODO: do this only when in development.
+{
+  const provider = NearLocalProvider();
+  utils.createTestAccounts(provider, 5);
+}
+
 /**
  * Use this file to configure your truffle project. It's seeded with some
  * common settings for different networks and features like migrations,
@@ -36,6 +62,16 @@ module.exports = {
    */
 
   networks: {
+    near: {
+      network_id: "*",
+      skipDryRun: true,
+      provider: () => NearTestNetProvider(),
+    },
+    development: {
+      network_id: "*",
+      skipDryRun: true,
+      provider: () => NearLocalProvider(),
+    },
     // Useful for testing. The `development` name is special - truffle uses it by default
     // if it's defined here and no other network is specified at the command line.
     // You should run a client (like ganache-cli, geth or parity) in a separate terminal
