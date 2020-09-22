@@ -105,3 +105,4 @@ dist
 
 # Build/Contracts
 build/
+.DS_Store

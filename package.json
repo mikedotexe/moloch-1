@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "truffle": "^5.1.44",
-    "web3-utils": "^1.2.11"
+    "web3-utils": "^1.2.11",
+    "ethereumjs-util": "^7.0.5"
   },
   "devDependencies": {},
   "scripts": {
