@@ -16,6 +16,7 @@ contract MemberContract is IMember, Module, ModuleGuard, ReentrancyGuard {
     using SafeMath for uint256;
 
     event UpdateMember(address dao, address member, uint256 shares);
+    event UpdateDelegateKey(address dao, address indexed memberAddress, address newDelegateKey);
 
     struct Member {
         uint256 flags;
@@ -27,24 +28,50 @@ contract MemberContract is IMember, Module, ModuleGuard, ReentrancyGuard {
 
     mapping(address => mapping(address => Member)) members;
     mapping(address => mapping(address => address)) memberAddresses;
+    mapping(address => mapping(address => address)) memberAddressesByDelegatedKey;
 
-    function isActiveMember(Registry dao, address member) override external view onlyModule(dao) returns (bool) {
-        uint256 memberFlags = members[address(dao)][member].flags;
-        return memberFlags.exists() && !memberFlags.isJailed() && members[address(dao)][member].nbShares > 0;
+    function isActiveMember(Registry dao, address addr) override external view returns (bool) {
+        address memberAddr = memberAddressesByDelegatedKey[address(dao)][addr];
+        uint256 memberFlags = members[address(dao)][memberAddr].flags;
+        return memberFlags.exists() && !memberFlags.isJailed() && members[address(dao)][memberAddr].nbShares > 0;
     }
 
-    function memberAddress(Registry dao, address memberOrDelegateKey) override external view onlyModule(dao) returns (address) {
+    function memberAddress(Registry dao, address memberOrDelegateKey) override external view returns (address) {
         return memberAddresses[address(dao)][memberOrDelegateKey];
     }
 
     function updateMember(Registry dao, address memberAddr, uint256 shares) override external onlyModule(dao) {
         Member storage member = members[address(dao)][memberAddr];
-        member.flags = 1;
+        if(member.delegateKey == address(0x0)) {
+            member.flags = 1;
+            member.delegateKey = memberAddr;
+        }
+
         member.nbShares = shares;
         
         totalShares = totalShares.add(shares);
+        
+        memberAddressesByDelegatedKey[address(dao)][member.delegateKey] = memberAddr;
 
         emit UpdateMember(address(dao), memberAddr, shares);
+    }
+
+    function updateDelegateKey(Registry dao, address memberAddr, address newDelegateKey) override external onlyModule(dao) {
+        require(newDelegateKey != address(0), "newDelegateKey cannot be 0");
+
+        // skip checks if member is setting the delegate key to their member address
+        if (newDelegateKey != memberAddr) {
+            require(memberAddresses[address(dao)][newDelegateKey] == address(0x0), "cannot overwrite existing members");
+            require(memberAddresses[address(dao)][memberAddressesByDelegatedKey[address(dao)][newDelegateKey]] == address(0x0), "cannot overwrite existing delegate keys");
+        }
+
+        Member storage member = members[address(dao)][memberAddr];
+        require(member.flags.exists(), "member does not exist");
+        memberAddressesByDelegatedKey[address(dao)][member.delegateKey] = address(0x0);
+        memberAddressesByDelegatedKey[address(dao)][newDelegateKey] = memberAddr;
+        member.delegateKey = newDelegateKey;
+
+        emit UpdateDelegateKey(address(dao), memberAddr, newDelegateKey);
     }
 
     function burnShares(Registry dao, address memberAddr, uint256 sharesToBurn) override external onlyModule(dao) {
